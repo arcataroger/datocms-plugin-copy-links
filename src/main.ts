@@ -135,8 +135,23 @@ connect({
           // Multiple IDs become properly split by comma
           if (maybeLinks?.length) {
             const linksAsArray = maybeLinks.split(",");
-            await setFieldValue(fieldPath, linksAsArray);
-            await ctx.notice(`Pasted ${linksAsArray.length} link(s).`);
+            const currentAndNewLinks = [...currentValue, ...linksAsArray];
+            const uniqueLinks = Array.from(new Set(currentAndNewLinks));
+            console.log("unique", uniqueLinks);
+            console.log("current", currentValue);
+
+            // Test to see if it's the same as what's already in the field
+            if (
+              uniqueLinks.length === currentValue.length &&
+              JSON.stringify(uniqueLinks) === JSON.stringify(currentValue)
+            ) {
+              throw new Error("Field already has all the pasted links.");
+            }
+
+            await setFieldValue(fieldPath, uniqueLinks);
+            await ctx.notice(
+              `Pasted ${uniqueLinks.length - currentValue.length} new link(s).`,
+            );
           } else {
             throw new Error("Unable to paste links; not sure why");
           }
