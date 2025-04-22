@@ -1,17 +1,15 @@
 import { connect, type DropdownAction } from "datocms-plugin-sdk";
-import "datocms-react-ui/styles.css";
-import ConfigScreen from "./entrypoints/ConfigScreen";
-import { render } from "./utils/render";
 
-const sessionKey = "datocms-plugin-copy-links";
+// Can be anything. We just use this to store data to the browser's session storage.
+const SESSION_KEY = "datocms-plugin-copy-links";
 
 connect({
-  renderConfigScreen(ctx) {
-    return render(<ConfigScreen ctx={ctx} />);
-  },
-
+  // This is what defines our  context menu
+  // See https://www.datocms.com/docs/plugin-sdk/dropdown-actions
   fieldDropdownActions(field) {
+    // We need to differentiate between single-link fields (strings) and multi-link fields (arrays)
     switch (field.attributes.field_type) {
+      // Single-link fields
       case "link":
         const singleLinkActions: DropdownAction[] = [
           {
@@ -28,6 +26,7 @@ connect({
 
         return singleLinkActions;
 
+      // Multi-link fields
       case "links":
         const multiLinkActions: DropdownAction[] = [
           {
@@ -44,26 +43,33 @@ connect({
 
         return multiLinkActions;
 
+      // Ignore other field types
       default:
         return [];
     }
   },
-  async executeFieldDropdownAction(id, ctx) {
+  async executeFieldDropdownAction(actionId, ctx) {
     const { formValues, fieldPath, setFieldValue, field } = ctx;
     const currentValue = formValues[fieldPath] as string | string[];
 
-    switch (id) {
+    switch (actionId) {
+      // Copying is easy, since we can just stringify.
+      // string.toString() is still a string.
+      // array.toString() becomes comma-separated string.
       case "copySingleLink":
       case "copyMultiLinks":
+        // Exit early if nothing to copy
         if (!currentValue?.length) {
           await ctx.alert(
             `Nothing to copy. Field "${field.attributes.label}" is empty.`,
           );
           return;
         }
+
+        // Wrap in try block just in case anything goes wrong with sessionStorage or anything else
         try {
           const stringified = currentValue.toString(); // Becomes comma-separated IDs
-          sessionStorage.setItem(sessionKey, stringified);
+          sessionStorage.setItem(SESSION_KEY, stringified);
           const numberOfIds = stringified.split(",").length; // Length after split
           await ctx.notice(`Copied ${numberOfIds} link(s).`);
         } catch (e) {
@@ -73,14 +79,18 @@ connect({
         }
         break;
 
+      // When pasting a single link, we have to test its properties to know how to paste it
       case "pasteSingleLink":
         try {
-          const maybeLink = sessionStorage.getItem(sessionKey);
+          const maybeLink = sessionStorage.getItem(SESSION_KEY);
 
+          // Exit early if empty
           if (!maybeLink) {
             throw new Error("There was nothing to paste.");
             break;
           }
+
+          // Try to split it by commas
           const arrayified = maybeLink.split(",");
 
           // If it's single-element array, go ahead and paste it
@@ -100,7 +110,7 @@ connect({
           }
 
           // Else continue as a normal string
-          await setFieldValue(fieldPath, sessionStorage.getItem(sessionKey));
+          await setFieldValue(fieldPath, sessionStorage.getItem(SESSION_KEY));
           await ctx.notice("Pasted 1 link.");
         } catch (e) {
           await ctx.alert(
@@ -109,13 +119,20 @@ connect({
         }
         break;
 
+      // We can be a little more lenient with multi-link fields
       case "pasteMultiLinks":
         try {
-          const maybeLinks = sessionStorage.getItem(sessionKey);
+          const maybeLinks = sessionStorage.getItem(SESSION_KEY);
+
+          // Exit early if empty
           if (!maybeLinks) {
             await ctx.alert("There was nothing to paste.");
             break;
           }
+
+          // Split it by comma and paste it.
+          // Single IDs become an single-element array of that ID
+          // Multiple IDs become properly split by comma
           if (maybeLinks?.length) {
             const linksAsArray = maybeLinks.split(",");
             await setFieldValue(fieldPath, linksAsArray);
