@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 .tmplr-preview
+/tsconfig.app.tsbuildinfo
+/tsconfig.node.tsbuildinfo
