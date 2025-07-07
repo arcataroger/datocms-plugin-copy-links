@@ -3,7 +3,7 @@
   "description": "Copy linked references from one field to another",
   "homepage": "https://github.com/arcataroger/datocms-plugin-copy-links",
   "private": false,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "Roger Tuan (DatoCMS) <r.tuan@datocms.com>",
   "type": "module",
   "keywords": [
