@@ -1,4 +1,5 @@
 import { connect, type DropdownAction } from "datocms-plugin-sdk";
+import { getValueByPath } from "./getValueByPath.ts";
 
 // Can be anything. We just use this to store data to the browser's session storage.
 const SESSION_KEY = "datocms-plugin-copy-links";
@@ -18,7 +19,7 @@ connect({
             icon: "clipboard",
           },
           {
-            id: "pasteSingleLink",
+            id: "pasteIntoSingleLinkField",
             label: "Paste link",
             icon: "paste",
           },
@@ -35,7 +36,7 @@ connect({
             icon: "clipboard-list",
           },
           {
-            id: "pasteMultiLinks",
+            id: "pasteIntoMultiLinkField",
             label: "Paste link(s)",
             icon: "paste",
           },
@@ -50,7 +51,11 @@ connect({
   },
   async executeFieldDropdownAction(actionId, ctx) {
     const { formValues, fieldPath, setFieldValue, field } = ctx;
-    const currentValue = formValues[fieldPath] as string | string[];
+    // We need to normalize the fieldPath in the case of fields nested in blocks
+    const currentValue = getValueByPath<string | string[]>(
+      formValues,
+      fieldPath,
+    );
 
     switch (actionId) {
       // Copying is easy, since we can just stringify.
@@ -79,15 +84,14 @@ connect({
         }
         break;
 
-      // When pasting a single link, we have to test its properties to know how to paste it
-      case "pasteSingleLink":
+      // When pasting into a single link field, we have to test its properties to know how to paste it
+      case "pasteIntoSingleLinkField":
         try {
           const maybeLink = sessionStorage.getItem(SESSION_KEY);
 
           // Exit early if empty
           if (!maybeLink) {
             throw new Error("There was nothing to paste.");
-            break;
           }
 
           // Try to split it by commas
@@ -96,9 +100,7 @@ connect({
           // If it's single-element array, go ahead and paste it
           if (arrayified.length === 1) {
             await setFieldValue(fieldPath, arrayified[0]);
-            await ctx.notice(
-              "Pasted the only link copied from a multi-link field.",
-            );
+            await ctx.notice("Pasted 1 link.");
             break;
           }
 
@@ -108,10 +110,6 @@ connect({
               "You cannot paste multiple links into a single-link field.",
             );
           }
-
-          // Else continue as a normal string
-          await setFieldValue(fieldPath, sessionStorage.getItem(SESSION_KEY));
-          await ctx.notice("Pasted 1 link.");
         } catch (e) {
           await ctx.alert(
             `Error pasting link: ${e instanceof Error ? e.message : e}`,
@@ -120,7 +118,7 @@ connect({
         break;
 
       // We can be a little more lenient with multi-link fields
-      case "pasteMultiLinks":
+      case "pasteIntoMultiLinkField":
         try {
           const maybeLinks = sessionStorage.getItem(SESSION_KEY);
 
@@ -135,17 +133,21 @@ connect({
           // Multiple IDs become properly split by comma
           if (maybeLinks?.length) {
             const linksAsArray = maybeLinks.split(",");
-            const currentAndNewLinks = [...currentValue, ...linksAsArray];
+            const currentAndNewLinks = [
+              ...(currentValue ?? []),
+              ...linksAsArray,
+            ];
             const uniqueLinks = Array.from(new Set(currentAndNewLinks));
-            console.log("unique", uniqueLinks);
-            console.log("current", currentValue);
 
             // Test to see if it's the same as what's already in the field
             if (
               uniqueLinks.length === currentValue.length &&
               JSON.stringify(uniqueLinks) === JSON.stringify(currentValue)
             ) {
-              throw new Error("Field already has all the pasted links.");
+              await ctx.notice(
+                "No new links pasted. Field already has all the copied links.",
+              );
+              break;
             }
 
             await setFieldValue(fieldPath, uniqueLinks);
