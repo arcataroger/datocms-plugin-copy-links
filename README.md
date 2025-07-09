@@ -9,6 +9,7 @@ The plugin requires no configuration. After it's installed in your project, all 
 
 ## Changelog
 
+* v0.2.1: Fixed bug when pasting multiple links into a block field
 * v0.2.0: Added support for link fields inside of blocks
 * v0.1.1: Added readme
 * v0.1.0: Initial release
