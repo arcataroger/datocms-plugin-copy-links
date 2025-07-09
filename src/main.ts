@@ -139,9 +139,13 @@ connect({
             ];
             const uniqueLinks = Array.from(new Set(currentAndNewLinks));
 
+            console.log("uniqueLinks", uniqueLinks);
+            console.log("currentValue", uniqueLinks);
+
             // Test to see if it's the same as what's already in the field
             if (
-              uniqueLinks.length === currentValue.length &&
+              currentValue &&
+              currentValue.length === uniqueLinks.length &&
               JSON.stringify(uniqueLinks) === JSON.stringify(currentValue)
             ) {
               await ctx.notice(
@@ -152,12 +156,13 @@ connect({
 
             await setFieldValue(fieldPath, uniqueLinks);
             await ctx.notice(
-              `Pasted ${uniqueLinks.length - currentValue.length} new link(s).`,
+              `Pasted ${uniqueLinks.length - (currentValue?.length ?? 0)} new link(s).`,
             );
           } else {
             throw new Error("Unable to paste links; not sure why");
           }
         } catch (e) {
+          console.error("Error pasting link(s)", e);
           await ctx.alert(
             `Error pasting link(s): ${e instanceof Error ? e.message : e}`,
           );
